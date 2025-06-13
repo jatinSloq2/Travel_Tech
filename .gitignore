@@ -1,0 +1,13 @@
+important/
+.vscode
+
+# Ignore all files in the important directory
+# except for the file named "keep.txt"
+important/*
+!important/keep.txt
+# Ignore all files in the .vscode directory
+.vscode/*
+node_modules/
+# Ignore all files in the node_modules directory
+# except for the file named "package.json"
+node_modules/*

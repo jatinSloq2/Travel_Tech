@@ -1,0 +1,45 @@
+/* Chrome, Safari, Edge */
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+input[type="date"]::-moz-focus-inner {
+  border: 0;
+}
+
+input[type="date"]::-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 #000;
+}
+
+
+/* GLOBAL SCROLLBAR STYLING */
+
+/* Webkit Browsers (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #fb923c; /* Tailwind orange-400 */
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #f97316; /* Tailwind orange-500 */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #fb923c transparent;
+}

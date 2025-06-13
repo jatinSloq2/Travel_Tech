@@ -1,0 +1,27 @@
+{
+  "name": "Travel_Teach_Backend",
+  "version": "1.0.0",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.13",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.14.2",
+    "mysql2": "^3.14.1",
+    "uuid": "^11.1.0"
+  }
+}
