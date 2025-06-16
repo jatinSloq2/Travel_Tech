@@ -5,7 +5,6 @@ import Hotel from '../models/Hotel/hotelModel.js';
 import Bus from "../models/Bus/busModel.js"
 import Route from "../models/Bus/busRouteModel.js"
 import Seat from "../models/Bus/busSeatModel.js"
-import BusBooking from "../models/Bus/busBookingModel.js";
 import BusReview from "../models/Bus/busReviewModel.js"
 //----------------------------------------------------------------
 import UnifiedBooking from "../models/booking.js"
