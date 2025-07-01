@@ -8,6 +8,7 @@ import BusList from "../Components/Bus/BusList";
 import SeatBookingModal from "../Components/Bus/SeatBookingModal";
 import { addDays, format } from "date-fns";
 import { FaBus } from "react-icons/fa";
+import { loadStripe } from "@stripe/stripe-js";
 
 const Buses = () => {
   const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
@@ -159,6 +160,33 @@ const Buses = () => {
       setBookingLoading(false);
     }
   };
+
+   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
+  const handleStripeCheckout = async () => {
+    try {
+      const { data } = await axiosInstance.post("/payment/create-checkout-session",
+        {
+          bookingType: 'bus',
+          amount: calcTotal(),
+          bookingDetails: {
+            busId: selectedBus._id,
+            date: filters.date,
+            selectedSeats: seatSelections,
+            travelers,
+          },
+        }
+      );
+
+      const stripe = await stripePromise;
+      await stripe.redirectToCheckout({ sessionId: data.id });
+    } catch (error) {
+      console.error(
+        "Stripe checkout error:",
+        error.response?.data || error.message
+      );
+    }
+  };
   const handleJourneyDateChange = (newDate) => {
     const formatted = newDate.toLocaleDateString("en-CA");
     setFilters((prev) => ({ ...prev, date: formatted }));
@@ -274,7 +302,8 @@ const Buses = () => {
             onDateChange={handleJourneyDateChange}
             allowDateChange={true}
             onClose={closeModal}
-            onConfirm={handleBooking}
+            onConfirm={handleStripeCheckout}
+            // onConfirm={handleBooking}
             totalAmount={calcTotal()}
             bookingLoading={bookingLoading}
           />

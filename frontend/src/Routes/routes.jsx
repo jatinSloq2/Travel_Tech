@@ -36,6 +36,7 @@ import VendorDashboard from "../Pages/VendorDashboard";
 import AddBus from "../Pages/AddBus";
 import EditBus from "../Pages/EditBus";
 import PackageDetail from "../Pages/PackageDetail";
+import PaymentSuccess from "../Pages/PaymentSuccess";
 //-----------------------------------------------------
 
 const routes = createBrowserRouter([
@@ -43,6 +44,7 @@ const routes = createBrowserRouter([
   {
     element: <OpenRoutes />,
     children: [
+    { path: "/payment-success", element: <PaymentSuccess /> },
       { path: "/hotels", element: <Hotels /> },
        { path: "/hotels/:id", element: <HotelDetails /> },
       { path: "/", element: <Flights /> },

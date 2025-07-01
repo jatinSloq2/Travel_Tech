@@ -17,6 +17,7 @@ import fliRouter from './routes/flights.routes.js';
 import trainRouter from './routes/train.routes.js';
 import adminRouter from './routes/admin.routes.js';
 import packRouter from './routes/packages.routes.js';
+import payRouter from './routes/payment.routes.js';
 
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/api/flight", fliRouter);
 app.use("/api/train", trainRouter)
 app.use("/api/dashboard/vendor", dashRouter);
 app.use("/api/admin", adminRouter)
+app.use("/api/payment", payRouter)
 app.use("/api/package", packRouter)
 
 app.use((req, res) => {

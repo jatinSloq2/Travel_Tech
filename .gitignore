@@ -11,3 +11,4 @@ node_modules/
 # Ignore all files in the node_modules directory
 # except for the file named "package.json"
 node_modules/*
+.env

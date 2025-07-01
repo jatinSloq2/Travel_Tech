@@ -5,7 +5,9 @@ import BusBooking from "../models/Bus/busBookingModel.js";
 import UnifiedBooking from "../models/booking.js"
 import updateBusReviewStats from "../models/Bus/reviewHandlerBus.js";
 import BusReview from "../models/Bus/busReviewModel.js";
+import Stripe from "stripe";
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const getCities = async (req, res) => {
   try {
@@ -241,41 +243,41 @@ export const getBusByID = async (req, res) => {
   }
 };
 
+
+
 export const createBooking = async (req, res) => {
   try {
+    const { session_id } = req.query;
     const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "User not authenticated" });
+    if (!session_id) return res.status(400).json({ success: false, message: "Missing Stripe session_id" });
+    if (!userId) return res.status(401).json({ success: false, message: "User not authenticated" });
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    const metadata = session.metadata;
+    if (!metadata) return res.status(400).json({ success: false, message: "No booking metadata found in session" });
+    const { bookingType, bookingDetails } = metadata;
+
+    if (bookingType !== 'bus') {
+      return res.status(400).json({ success: false, message: "Invalid booking type for this route" });
     }
 
-    const { busId, journeyDate, travellers, totalAmount } = req.body;
+    const { busId, date, selectedSeats, travelers } = JSON.parse(bookingDetails || '{}');
+    const totalAmount = session.amount_total / 100;
 
-    if (!busId || !journeyDate || !travellers || travellers.length === 0 || !totalAmount) {
-      return res.status(400).json({ success: false, message: 'Missing required booking details.' });
+    // Validate required fields
+    if (!busId || !date || !selectedSeats?.length || !travelers?.length) {
+      return res.status(400).json({ success: false, message: "Incomplete booking details" });
     }
 
-    const parsedDate = new Date(journeyDate);
-    if (isNaN(parsedDate)) {
-      return res.status(400).json({ success: false, message: "Invalid journey date format. Use YYYY-MM-DD" });
-    }
-
+    const parsedDate = new Date(date);
     const dateKey = parsedDate.toISOString().split('T')[0];
 
     const bus = await Bus.findById(busId).lean();
-    if (!bus) {
-      return res.status(404).json({ success: false, message: "Bus not found." });
-    }
-
+    if (!bus) return res.status(404).json({ success: false, message: "Bus not found" });
+  
     const seatDoc = await Seat.findOne({ bus: busId });
-    if (!seatDoc) {
-      return res.status(404).json({ success: false, message: "Seat info not found for this bus." });
-    }
-
+    if (!seatDoc)  return res.status(404).json({ success: false, message: "Seat data not found for this bus" });
     const allSeats = Object.values(seatDoc.seatTypes || {}).flat();
-    const requestedSeats = travellers.map(t => t.seatNumber);
-
-    // ✅ Get already booked seats from UnifiedBooking
-    const unifiedBookings = await UnifiedBooking.find({
+    const existingBookings = await UnifiedBooking.find({
       bookingType: 'bus',
       status: 'confirmed',
       'details.bus': busId,
@@ -283,63 +285,53 @@ export const createBooking = async (req, res) => {
     }).lean();
 
     const alreadyBooked = new Set();
-
-    unifiedBookings.forEach(booking => {
-      const travelers = booking.details?.travellers || [];
-      travelers.forEach(t => {
-        const tDate = new Date(t.date);
-        if (
-          tDate.toISOString().split('T')[0] === dateKey &&
-          t.seatNumber
-        ) {
+    existingBookings.forEach(b => {
+      (b.details.travellers || []).forEach(t => {
+        if (new Date(t.date).toISOString().split('T')[0] === dateKey && t.seatNumber) {
           alreadyBooked.add(t.seatNumber);
         }
       });
     });
+    const allExist = selectedSeats.every(seat => allSeats.includes(seat));
+    const allAvailable = selectedSeats.every(seat => !alreadyBooked.has(seat));
 
-    // ✅ Validate all seats exist
-    const allExist = requestedSeats.every(seat => allSeats.includes(seat));
     if (!allExist) {
-      return res.status(400).json({ success: false, message: "One or more requested seats do not exist." });
+      return res.status(400).json({ success: false, message: "One or more seats are invalid." });
     }
 
-    // ✅ Validate all seats available
-    const allAvailable = requestedSeats.every(seat => !alreadyBooked.has(seat));
     if (!allAvailable) {
-      return res.status(400).json({ success: false, message: "One or more requested seats are already booked for this date." });
+      return res.status(400).json({ success: false, message: "Some seats are already booked." });
     }
-
-    // ✅ Build updated travellers array with date injected
-    const enrichedTravellers = travellers.map(t => ({
+    const enrichedTravelers = travelers.map(t => ({
       ...t,
       date: parsedDate,
       bus: busId,
     }));
 
-    // ✅ Create booking inside UnifiedBooking
-    const unifiedBooking = new UnifiedBooking({
+    const newBooking = new UnifiedBooking({
       user: userId,
       bookingType: 'bus',
       status: 'confirmed',
       amount: totalAmount,
+      paymentStatus : "paid",
       details: {
         bus: busId,
         journeyDate: parsedDate,
-        travellers: enrichedTravellers,
+        travellers: enrichedTravelers,
       },
     });
 
-    await unifiedBooking.save();
+    await newBooking.save();
 
     return res.status(201).json({
       success: true,
-      message: "Bus booking successful via UnifiedBooking",
-      booking: unifiedBooking,
+      message: "Bus booking confirmed after payment",
+      booking: newBooking,
     });
 
-  } catch (error) {
-    console.error("❌ Unified Bus Booking Error:", error);
-    return res.status(500).json({ success: false, message: "Booking failed due to server error." });
+  } catch (err) {
+    console.error("❌ confirmBusBooking Error:", err.message);
+    return res.status(500).json({ success: false, message: "Booking confirmation failed" });
   }
 };
 
