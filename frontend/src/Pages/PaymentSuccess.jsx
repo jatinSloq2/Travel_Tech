@@ -7,7 +7,7 @@ const PaymentSuccess = () => {
   const sessionId = searchParams.get("session_id");
 
   const [message, setMessage] = useState("Processing your booking...");
-  const [status, setStatus] = useState("loading"); // 'loading', 'success', 'error'
+  const [status, setStatus] = useState("loading");
 
   const confirmBooking = async () => {
     try {
@@ -32,7 +32,7 @@ const PaymentSuccess = () => {
           endpoint = `/train/booking?session_id=${sessionId}`;
           break;
         case "hotel":
-          endpoint = `/hotel/booking?session_id=${sessionId}`;
+          endpoint = `/hotel/book?session_id=${sessionId}`;
           break;
         default:
           throw new Error("Unknown booking type");

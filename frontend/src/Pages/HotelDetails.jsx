@@ -1,13 +1,11 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import BookingModal from "../Components/Hotel/BookingModal";
-import {
-  fetchHotelById,
-} from "../Services/DashboardServices";
+import { fetchHotelById } from "../Services/DashboardServices";
 import axiosInstance from "../utils/axiosInstance";
 
-import HotelOverview from '../Components/Hotel/HotelOverview'
-import HotelRatingAmenities from '../Components/Hotel/HotelRatingAmenities'
+import HotelOverview from "../Components/Hotel/HotelOverview";
+import HotelRatingAmenities from "../Components/Hotel/HotelRatingAmenities";
 
 import SectionNav from "../Components/Hotel/SectionNav";
 import RoomsSection from "../Components/Hotel/RoomSection";
@@ -17,7 +15,8 @@ import GalleryModal from "../Components/Hotel/GallerySection";
 import ReviewsSection from "../Components/Hotel/ReviewSection";
 import LocationSection from "../Components/Hotel/LocationSection";
 import SuccessMessage from "../Components/Hotel/SuccessMessage";
-
+import { loadStripe } from "@stripe/stripe-js";
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 const sections = [
   { key: "rooms", label: "Rooms" },
   { key: "amenities", label: "Amenities" },
@@ -68,7 +67,6 @@ const HotelPage = () => {
     fetchHotel();
   }, [id]);
 
-  // Calculate total rooms needed based on guests and room capacity
   useEffect(() => {
     const capacity = selectedRoom?.capacity || 2;
     const neededRooms = Math.ceil(totalGuests / capacity);
@@ -92,34 +90,7 @@ const HotelPage = () => {
     setName("");
   }, []);
 
-  const bookRoom = async ({
-    hotelId,
-    roomId,
-    checkIn,
-    checkOut,
-    totalGuests,
-    totalRooms,
-    totalAmount,
-  }) => {
-    try {
-      await axiosInstance.post("/hotel/book", {
-        hotel: hotelId,
-        room: roomId,
-        checkIn,
-        checkOut,
-        totalGuests,
-        totalRooms,
-        totalAmount,
-      });
-      setSuccessMessage("✅ Room booked successfully!");
-      closeModal();
-    } catch (error) {
-      const message =
-        error.response?.data?.message || "❌ Booking failed. Please try again.";
-      setErrorMessage(message);
-    }
-  };
-
+ 
   const openGalleryModal = (index) => {
     setCurrentImageIndex(index);
     setGalleryModalOpen(true);
@@ -148,20 +119,51 @@ const HotelPage = () => {
       setErrorMessage("All fields are required.");
       return;
     }
+
     if (new Date(checkIn) >= new Date(checkOut)) {
       setErrorMessage("Check-out must be after check-in.");
       return;
     }
 
-    await bookRoom({
+    const nights =
+      (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
+      (1000 * 60 * 60 * 24);
+
+    if (nights <= 0) {
+      setErrorMessage("Check-out must be at least 1 day after check-in.");
+      return;
+    }
+
+    const totalAmount = selectedRoom.pricePerNight * totalRooms * nights;
+
+    const bookingDetails = {
       hotelId: hotel._id,
       roomId: selectedRoom._id,
       checkIn,
       checkOut,
       totalGuests,
       totalRooms,
-      totalAmount: selectedRoom.pricePerNight * totalRooms,
-    });
+    };
+
+    try {
+      const { data } = await axiosInstance.post(
+        "/payment/create-checkout-session",
+        {
+          bookingType: "hotel",
+          amount: totalAmount,
+          bookingDetails,
+        }
+      );
+
+      const stripe = await stripePromise;
+      await stripe.redirectToCheckout({ sessionId: data.id });
+    } catch (error) {
+      console.error(
+        "Stripe checkout error:",
+        error.response?.data || error.message
+      );
+      setErrorMessage("Payment failed. Please try again.");
+    }
   };
 
   if (loading)
@@ -181,7 +183,6 @@ const HotelPage = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-10 font-sans text-gray-800">
       <section id="overview" className="space-y-6 mb-10">
-        {/* Assuming you keep HotelOverview and HotelRatingAmenities as is */}
         <HotelOverview hotel={hotel} />
         <HotelRatingAmenities hotel={hotel} />
       </section>
@@ -204,7 +205,10 @@ const HotelPage = () => {
       )}
 
       {activeSection === "gallery" && (
-        <GallerySection images={hotel.images} onOpenGallery={openGalleryModal} />
+        <GallerySection
+          images={hotel.images}
+          onOpenGallery={openGalleryModal}
+        />
       )}
 
       {galleryModalOpen && (
@@ -219,7 +223,9 @@ const HotelPage = () => {
 
       {activeSection === "reviews" && <ReviewsSection reviews={reviews} />}
 
-      {activeSection === "location" && <LocationSection location={hotel.location} />}
+      {activeSection === "location" && (
+        <LocationSection location={hotel.location} />
+      )}
 
       <SuccessMessage message={successMessage} />
 

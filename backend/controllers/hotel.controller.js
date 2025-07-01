@@ -1,3 +1,4 @@
+import Stripe from 'stripe';
 import Booking from '../models/Hotel/bookingModel.js';
 import Hotel from '../models/Hotel/hotelModel.js';
 import updateHotelReviewStats from '../models/Hotel/reviewHandler.js';
@@ -5,6 +6,7 @@ import Review from '../models/Hotel/reviewModel.js';
 import Room from '../models/Hotel/roomModel.js';
 import UnifiedBooking from "../models/booking.js"
 import { KNOWN_CITIES } from '../utils/knowcities.js';
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const hotelCity = async (req, res) => {
   try {
@@ -121,54 +123,68 @@ export const getHotelByID = async (req, res) => {
 export const createBooking = async (req, res) => {
   try {
     const { id: userId, first_name, last_name } = req.user;
+    const name = `${first_name} ${last_name}`;
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ message: "Missing Stripe session_id" });
+    }
+
+    // Check for duplicate booking using session ID
+    const existing = await UnifiedBooking.findOne({
+      bookingType: "hotel",
+      "stripe.sessionId": session_id,
+    });
+    if (existing) {
+      return res.status(400).json({ message: "Booking already created for this session." });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    const metadata = session.metadata;
+    if (!metadata || !metadata.bookingDetails || !session.amount_total) {
+      return res.status(400).json({ message: "Incomplete session metadata." });
+    }
+
+    const bookingDetails = JSON.parse(metadata.bookingDetails);
     const {
-      hotel,
-      room,
+      hotelId: hotel,
+      roomId: room,
       checkIn,
       checkOut,
       totalGuests,
-      totalRooms,
-      totalAmount
-    } = req.body;
+      totalRooms
+    } = bookingDetails;
 
-    const name = `${first_name} ${last_name}`;
+    const totalAmount = session.amount_total / 100; // Stripe stores amount in cents
 
-    // ✅ Field Validation
-    if (!hotel || !room || !checkIn || !checkOut || !totalAmount || !totalRooms || !name) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required."
-      });
+    if (!hotel || !room || !checkIn || !checkOut || !totalGuests || !totalRooms) {
+      return res.status(400).json({ message: "Missing booking details in metadata." });
     }
 
+    // Validate dates
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (checkInDate >= checkOutDate) {
+    if (checkInDate >= checkOutDate)
       return res.status(400).json({ success: false, message: "Check-out must be after check-in." });
-    }
 
-    if (checkInDate < today) {
+    if (checkInDate < today)
       return res.status(400).json({ success: false, message: "Booking date must be today or in the future." });
-    }
 
     const stayDuration = (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24);
-    if (stayDuration > 15) {
+    if (stayDuration > 15)
       return res.status(400).json({ success: false, message: "Booking cannot exceed 15 days." });
-    }
 
     const advanceDays = (checkInDate - today) / (1000 * 60 * 60 * 24);
-    if (advanceDays > 180) {
+    if (advanceDays > 180)
       return res.status(400).json({ success: false, message: "Booking cannot be more than 6 months in advance." });
-    }
 
-    // ✅ Room & Hotel Validations
+    // Room validations
     const roomData = await Room.findById(room);
-    if (!roomData) {
+    if (!roomData)
       return res.status(404).json({ success: false, message: "Room not found." });
-    }
 
     const roomCapacity = roomData.totalRooms;
 
@@ -177,10 +193,7 @@ export const createBooking = async (req, res) => {
       status: "confirmed",
       'details.room': room,
       $or: [
-        {
-          'details.checkIn': { $lt: checkOutDate },
-          'details.checkOut': { $gt: checkInDate }
-        }
+        { 'details.checkIn': { $lt: checkOutDate }, 'details.checkOut': { $gt: checkInDate } }
       ]
     });
 
@@ -195,35 +208,36 @@ export const createBooking = async (req, res) => {
     }
 
     const hotelDoc = await Hotel.findById(hotel);
-    if (!hotelDoc) {
+    if (!hotelDoc)
       return res.status(404).json({ success: false, message: "Hotel not found." });
-    }
 
+    // Save booking
     const newBooking = new UnifiedBooking({
-  user: userId,
-  bookingType: "hotel",
-  status: "confirmed",
-  paymentStatus: "pending",
-  bookingDate: new Date(),
-
-  amount: totalAmount, // ✅ This fixes the validation error
-
-  details: {
-    hotel,
-    room,
-    checkIn: checkInDate,
-    checkOut: checkOutDate,
-    totalGuests,
-    totalRooms,
-    bookedBy: name
-  }
-});
+      user: userId,
+      bookingType: "hotel",
+      status: "confirmed",
+      paymentStatus: "paid",
+      bookingDate: new Date(),
+      amount: totalAmount,
+      stripe: {
+        sessionId: session.id,
+      },
+      details: {
+        hotel,
+        room,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        totalGuests,
+        totalRooms,
+        bookedBy: name
+      }
+    });
 
     await newBooking.save();
 
     return res.status(201).json({
       success: true,
-      message: "Hotel booking created successfully."
+      message: "✅ Hotel booking created successfully.",
     });
 
   } catch (error) {
