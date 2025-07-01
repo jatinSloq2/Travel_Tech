@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
 import { User, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import axiosInstance from "../../utils/axiosInstance";
+import { loadStripe } from "@stripe/stripe-js";
 
 const TrainDetailsModal = ({
   isOpen,
@@ -12,11 +13,11 @@ const TrainDetailsModal = ({
   setDate,
   onClose,
 }) => {
+  const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
   const [numTravelers, setNumTravelers] = useState(1);
   const [travelers, setTravelers] = useState([{ name: "", phone: "" }]);
   const [email, setEmail] = useState("");
   const [selectedSeatClass, setSelectedSeatClass] = useState("");
-console.log(trainDetails)
   useEffect(() => {
     setTravelers((prev) => {
       const updated = [...prev];
@@ -40,6 +41,12 @@ console.log(trainDetails)
     return `${year}-${month}-${day}`;
   };
 
+  const selectedSeatFare =
+    trainDetails?.seatTypes?.find((seat) => seat.class === selectedSeatClass)
+      ?.fare || 0;
+
+  const totalFare = selectedSeatFare * numTravelers;
+
   const handleConfirmBooking = async () => {
     for (let i = 0; i < travelers.length; i++) {
       const t = travelers[i];
@@ -58,28 +65,31 @@ console.log(trainDetails)
       alert("Please enter contact email.");
       return;
     }
-
-    // Assign selected seatClass to all travelers
     const travelersWithSeat = travelers.map((t) => ({
       ...t,
       seatType: selectedSeatClass,
     }));
-
-    const payload = {
-      trainId: trainDetails?.trainId,
-      date: formatLocalDate(date),
-      travelers: travelersWithSeat,
-    };
-
     try {
-      await axiosInstance.post("/train/booking", payload);
-      alert("Booking confirmed!");
-      onClose();
+      const { data } = await axiosInstance.post(
+        "/payment/create-checkout-session",
+        {
+          bookingType: "train",
+          amount: totalFare,
+          bookingDetails: {
+            trainId: trainDetails?.trainId,
+            date: formatLocalDate(date),
+            travelers: travelersWithSeat,
+          },
+        }
+      );
+
+      const stripe = await stripePromise;
+      await stripe.redirectToCheckout({ sessionId: data.id });
     } catch (error) {
-      const message =
-        error.response?.data?.message || "Failed to confirm booking.";
-      alert(message);
-      console.error(error);
+      console.error(
+        "Stripe checkout error:",
+        error.response?.data || error.message
+      );
     }
   };
 
@@ -321,6 +331,9 @@ console.log(trainDetails)
               className="mt-2 p-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-900 placeholder-gray-400 text-sm"
             />
           </label>
+          <div className="text-right text-lg font-semibold text-gray-800 mt-4 px-4">
+            Total Fare: <span className="text-orange-600">₹{totalFare}</span>
+          </div>
 
           {/* Confirm Booking button */}
           <button

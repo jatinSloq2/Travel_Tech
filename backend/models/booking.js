@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 const bookingSchema = new mongoose.Schema({
-  user: { type: Number,  required: true },
+  user: { type: Number, required: true },
   bookingType: {
     type: String,
     enum: ["flight", "train", "bus", "hotel", "package"],
@@ -15,18 +15,17 @@ const bookingSchema = new mongoose.Schema({
     enum: ["confirmed", "cancelled", "completed"],
     default: "confirmed",
   },
-
-  // Common fields
   amount: { type: Number, required: true },
   paymentStatus: {
     type: String,
     enum: ["paid", "pending", "failed"],
     default: "pending",
   },
-
-  // Booking-specific details
+  stripe: {
+    sessionId: { type: String },
+  },
   details: {
-    type: mongoose.Schema.Types.Mixed, 
+    type: mongoose.Schema.Types.Mixed,
     required: true,
   },
 });

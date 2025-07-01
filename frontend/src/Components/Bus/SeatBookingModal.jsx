@@ -17,15 +17,10 @@ const SeatBookingModal = ({
   bookingLoading,
 }) => {
   const [activeTab, setActiveTab] = useState("seats");
-
-  console.log("ok", bus);
-
   const rows = [];
   for (let i = 0; i < bus.allSeats.length; i += 4) {
     rows.push(bus.allSeats.slice(i, i + 4));
   }
-
-  // Price info remains same...
   const seatTypeInfo = Object.entries(bus.prices ?? {}).map(([type, price]) => {
     const seatsOfType = bus.seatTypes?.[type] ?? [];
     const availableCount = seatsOfType.filter((s) =>
@@ -39,7 +34,6 @@ const SeatBookingModal = ({
     };
   });
 
-  /* ---------- jsx ---------- */
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
       <div className="bg-white rounded-xl w-full max-w-3xl p-6 relative max-h-[90vh] overflow-y-auto shadow-lg">

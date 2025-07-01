@@ -29,7 +29,7 @@ const PaymentSuccess = () => {
           endpoint = `/flight/confirm?session_id=${sessionId}`;
           break;
         case "train":
-          endpoint = `/train/confirm?session_id=${sessionId}`;
+          endpoint = `/train/booking?session_id=${sessionId}`;
           break;
         case "hotel":
           endpoint = `/hotel/confirm?session_id=${sessionId}`;

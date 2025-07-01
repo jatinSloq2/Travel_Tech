@@ -255,27 +255,16 @@ export const createBooking = async (req, res) => {
     const metadata = session.metadata;
     if (!metadata) return res.status(400).json({ success: false, message: "No booking metadata found in session" });
     const { bookingType, bookingDetails } = metadata;
-
-    if (bookingType !== 'bus') {
-      return res.status(400).json({ success: false, message: "Invalid booking type for this route" });
-    }
-
+    if (bookingType !== 'bus') return res.status(400).json({ success: false, message: "Invalid booking type for this route" });
     const { busId, date, selectedSeats, travelers } = JSON.parse(bookingDetails || '{}');
     const totalAmount = session.amount_total / 100;
-
-    // Validate required fields
-    if (!busId || !date || !selectedSeats?.length || !travelers?.length) {
-      return res.status(400).json({ success: false, message: "Incomplete booking details" });
-    }
-
+    if (!busId || !date || !selectedSeats?.length || !travelers?.length) return res.status(400).json({ success: false, message: "Incomplete booking details" });
     const parsedDate = new Date(date);
     const dateKey = parsedDate.toISOString().split('T')[0];
-
     const bus = await Bus.findById(busId).lean();
     if (!bus) return res.status(404).json({ success: false, message: "Bus not found" });
-  
     const seatDoc = await Seat.findOne({ bus: busId });
-    if (!seatDoc)  return res.status(404).json({ success: false, message: "Seat data not found for this bus" });
+    if (!seatDoc) return res.status(404).json({ success: false, message: "Seat data not found for this bus" });
     const allSeats = Object.values(seatDoc.seatTypes || {}).flat();
     const existingBookings = await UnifiedBooking.find({
       bookingType: 'bus',
@@ -294,41 +283,23 @@ export const createBooking = async (req, res) => {
     });
     const allExist = selectedSeats.every(seat => allSeats.includes(seat));
     const allAvailable = selectedSeats.every(seat => !alreadyBooked.has(seat));
-
-    if (!allExist) {
-      return res.status(400).json({ success: false, message: "One or more seats are invalid." });
-    }
-
-    if (!allAvailable) {
-      return res.status(400).json({ success: false, message: "Some seats are already booked." });
-    }
-    const enrichedTravelers = travelers.map(t => ({
-      ...t,
-      date: parsedDate,
-      bus: busId,
-    }));
-
+    if (!allExist) return res.status(400).json({ success: false, message: "One or more seats are invalid." });
+    if (!allAvailable) return res.status(400).json({ success: false, message: "Some seats are already booked." });
+    const enrichedTravelers = travelers.map(t => ({ ...t, date: parsedDate, bus: busId, }));
     const newBooking = new UnifiedBooking({
       user: userId,
       bookingType: 'bus',
       status: 'confirmed',
       amount: totalAmount,
-      paymentStatus : "paid",
+      paymentStatus: "paid",
       details: {
         bus: busId,
         journeyDate: parsedDate,
         travellers: enrichedTravelers,
       },
     });
-
     await newBooking.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Bus booking confirmed after payment",
-      booking: newBooking,
-    });
-
+    return res.status(201).json({ success: true, message: "Bus booking confirmed after payment", booking: newBooking, });
   } catch (err) {
     console.error("❌ confirmBusBooking Error:", err.message);
     return res.status(500).json({ success: false, message: "Booking confirmation failed" });

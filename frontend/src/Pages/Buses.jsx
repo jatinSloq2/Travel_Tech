@@ -135,33 +135,7 @@ const Buses = () => {
     }, 0);
   };
 
-  const handleBooking = async () => {
-    if (!selectedBus || seatSelections.length === 0)
-      return alert("Select at least one seat.");
-    if (!filters.date) return alert("Please select a journey date.");
-    if (travelers.some((t) => !t.name.trim() || !t.age))
-      return alert("Fill all traveller details.");
-
-    try {
-      setBookingLoading(true);
-      await axiosInstance.post("/bus/booking", {
-        busId: selectedBus._id,
-        journeyDate: filters.date,
-        travellers: travelers,
-        totalAmount: calcTotal(),
-      });
-      alert("Booking successful");
-      closeModal();
-      fetchBuses();
-    } catch (err) {
-      console.error("Booking failed:", err);
-      alert("Booking failed");
-    } finally {
-      setBookingLoading(false);
-    }
-  };
-
-   const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+  const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
   const handleStripeCheckout = async () => {
     try {
@@ -219,7 +193,6 @@ const Buses = () => {
 
   return (
     <section className="relative">
-      {/* Background SVG Wave */}
       <div className="absolute top-0 left-0 w-full h-[400px] overflow-hidden pointer-events-none z-0">
         <svg
           className="w-full h-full block"
@@ -238,8 +211,6 @@ const Buses = () => {
           <FaBus className="w-10 h-10" />
           Search Buses
         </h1>
-
-        {/* Search Form */}
         <div
           ref={searchFormRef}
           className={`z-20 rounded-md p-4 mb-12 transition-all duration-300 ${
@@ -303,7 +274,6 @@ const Buses = () => {
             allowDateChange={true}
             onClose={closeModal}
             onConfirm={handleStripeCheckout}
-            // onConfirm={handleBooking}
             totalAmount={calcTotal()}
             bookingLoading={bookingLoading}
           />
