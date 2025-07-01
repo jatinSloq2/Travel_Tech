@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axiosInstance from "../../utils/axiosInstance";
 import { User, X } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
   const [flightDetails, setFlightDetails] = useState(null);
@@ -10,12 +12,9 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
   const [numTravelers, setNumTravelers] = useState(1);
   const [travelers, setTravelers] = useState([{ name: "", phone: "" }]);
   const [email, setEmail] = useState("");
-
-  // Track selected seat types per flightId
   const [selectedSeats, setSelectedSeats] = useState({});
   useEffect(() => {
     if (!isOpen || !flightIds?.length || !date) return;
-
     const fetchFlightDetails = async () => {
       setLoading(true);
       setError(null);
@@ -35,8 +34,6 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
 
     fetchFlightDetails();
   }, [isOpen, flightIds?.join(","), date]);
-
-  // Adjust travelers array size according to numTravelers
   useEffect(() => {
     setTravelers((prev) => {
       const updated = [...prev];
@@ -56,14 +53,31 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
   const handleSeatSelect = (flightId, seatType) => {
     setSelectedSeats((prev) => ({ ...prev, [flightId]: seatType }));
   };
+
+  const getTotalFare = () => {
+    let total = 0;
+
+    if (!flightDetails || !Array.isArray(flightDetails)) return total;
+
+    for (const flight of flightDetails) {
+      const flightId = flight.flightId;
+      const selectedType = selectedSeats[flightId];
+
+      const seatInfo = flight.seatTypes?.find((s) => s.type === selectedType);
+      if (seatInfo) {
+        total += seatInfo.price * numTravelers;
+      }
+    }
+
+    return total;
+  };
+
   const handleConfirmBooking = async () => {
-    // Validate seat types selected for every flight
     if (!flightIds.every((id) => selectedSeats[id])) {
       alert("Please select seat types for all flights.");
       return;
     }
 
-    // Validate traveler info
     for (let i = 0; i < travelers.length; i++) {
       const t = travelers[i];
       if (!t.name.trim() || !t.phone.trim()) {
@@ -76,33 +90,76 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
       alert("Please enter contact email.");
       return;
     }
-
     const flights = flightIds.map((id) => ({
       flight: id,
       date,
       seatType: selectedSeats[id],
     }));
 
-    const bookingPayload = {
-      travelers,
-      email,
-      flights,
-    };
-
-    console.log("Booking Payload:", JSON.stringify(bookingPayload, null, 2));
+    const bookingDetails = { travelers, email, flights };
 
     try {
-      await axiosInstance.post("flight/booking", bookingPayload);
-      alert("Booking confirmed!");
-      onClose();
+      // ✅ Create Stripe Checkout session
+      const { data } = await axiosInstance.post(
+        "/payment/create-checkout-session",
+        {
+          bookingType: "flight",
+          amount: getTotalFare(),
+          bookingDetails,
+        }
+      );
+
+      const stripe = await stripePromise;
+      await stripe.redirectToCheckout({ sessionId: data.id });
     } catch (error) {
-      // Show backend error message if available, else generic error
       const message =
-        error.response?.data?.message || "Failed to confirm booking.";
+        error.response?.data?.message || "Failed to start payment.";
       alert(message);
-      console.error(error);
+      console.error("Stripe checkout error:", error);
     }
   };
+
+  // const handleConfirmBooking = async () => {
+  //   if (!flightIds.every((id) => selectedSeats[id])) {
+  //     alert("Please select seat types for all flights.");
+  //     return;
+  //   }
+  //   for (let i = 0; i < travelers.length; i++) {
+  //     const t = travelers[i];
+  //     if (!t.name.trim() || !t.phone.trim()) {
+  //       alert(`Please fill in name and phone for traveler ${i + 1}.`);
+  //       return;
+  //     }
+  //   }
+
+  //   if (!email.trim()) {
+  //     alert("Please enter contact email.");
+  //     return;
+  //   }
+
+  //   const flights = flightIds.map((id) => ({
+  //     flight: id,
+  //     date,
+  //     seatType: selectedSeats[id],
+  //   }));
+
+  //   const bookingPayload = {
+  //     travelers,
+  //     email,
+  //     flights,
+  //   };
+
+  //   try {
+  //     await axiosInstance.post("flight/booking", bookingPayload);
+  //     alert("Booking confirmed!");
+  //     onClose();
+  //   } catch (error) {
+  //     const message =
+  //       error.response?.data?.message || "Failed to confirm booking.";
+  //     alert(message);
+  //     console.error(error);
+  //   }
+  // };
 
   if (!isOpen) return null;
 
@@ -328,8 +385,9 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
               className="mt-2 p-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-900 placeholder-gray-400 text-sm"
             />
           </label>
-
-          {/* Confirm Booking button */}
+          <div className="text-right mt-2 text-sm text-gray-800 font-medium">
+            Total Fare: ₹{getTotalFare()}
+          </div>
           <button
             onClick={handleConfirmBooking}
             className="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold py-3 rounded-md shadow-sm transition duration-200 text-sm"

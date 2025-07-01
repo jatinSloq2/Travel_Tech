@@ -45,7 +45,6 @@ export const getCities = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
-
 export const getAllBuses = async (req, res) => {
   const { origin, destination, day, date, busType, maxPrice } = req.query;
 
@@ -218,13 +217,6 @@ export const getAllBuses = async (req, res) => {
     });
   }
 };
-
-
-
-
-
-
-
 export const getBusByID = async (req, res) => {
   try {
     const { id } = req.params;
@@ -242,12 +234,11 @@ export const getBusByID = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
-
-
 export const createBooking = async (req, res) => {
   try {
     const { session_id } = req.query;
+    const existing = await UnifiedBooking.findOne({ bookingType: "bus", "stripe.sessionId": session_id, });
+    if (existing) return res.status(200).json({ success: true, message: "Already booked", booking: existing });
     const userId = req.user?.id;
     if (!session_id) return res.status(400).json({ success: false, message: "Missing Stripe session_id" });
     if (!userId) return res.status(401).json({ success: false, message: "User not authenticated" });
@@ -266,13 +257,7 @@ export const createBooking = async (req, res) => {
     const seatDoc = await Seat.findOne({ bus: busId });
     if (!seatDoc) return res.status(404).json({ success: false, message: "Seat data not found for this bus" });
     const allSeats = Object.values(seatDoc.seatTypes || {}).flat();
-    const existingBookings = await UnifiedBooking.find({
-      bookingType: 'bus',
-      status: 'confirmed',
-      'details.bus': busId,
-      'details.travellers.date': parsedDate,
-    }).lean();
-
+    const existingBookings = await UnifiedBooking.find({ bookingType: 'bus', status: 'confirmed', 'details.bus': busId, 'details.travellers.date': parsedDate, }).lean();
     const alreadyBooked = new Set();
     existingBookings.forEach(b => {
       (b.details.travellers || []).forEach(t => {
@@ -291,6 +276,7 @@ export const createBooking = async (req, res) => {
       bookingType: 'bus',
       status: 'confirmed',
       amount: totalAmount,
+      stripe: { sessionId: session_id },
       paymentStatus: "paid",
       details: {
         bus: busId,
@@ -305,8 +291,6 @@ export const createBooking = async (req, res) => {
     return res.status(500).json({ success: false, message: "Booking confirmation failed" });
   }
 };
-
-
 export const addBusWithDetails = async (req, res) => {
   try {
     const { bus, route, seat } = req.body;
@@ -352,7 +336,6 @@ export const addBusWithDetails = async (req, res) => {
     res.status(500).json({ error: 'Failed to add bus data' });
   }
 };
-
 export const updateBusByID = async (req, res) => {
   try {
     const { id } = req.params;
@@ -398,7 +381,6 @@ export const updateBusByID = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
 export const cancelBooking = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -434,7 +416,6 @@ export const cancelBooking = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
-
 export const addBookingReview = async (req, res) => {
   const { targetId, bookingId } = req.params;
   const { rating, comment } = req.body;
@@ -473,7 +454,6 @@ export const addBookingReview = async (req, res) => {
     res.status(500).json({ message: 'Something went wrong.' });
   }
 }
-
 export const getUserBookingById = async (req, res) => {
   const { id } = req.params;
   try {

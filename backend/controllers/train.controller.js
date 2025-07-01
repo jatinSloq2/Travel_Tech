@@ -202,9 +202,7 @@ export const createBooking = async (req, res) => {
       const seatDoc = seatDocsByClass[traveler.seatType];
       let assignedSeat = null;
       for (const seat of seatDoc.seats) {
-        const bookingForDate = seat.bookings.find(b =>
-          new Date(b.date).toISOString().slice(0, 10) === bookingDate.toISOString().slice(0, 10)
-        );
+        const bookingForDate = seat.bookings.find(b => new Date(b.date).toISOString().slice(0, 10) === bookingDate.toISOString().slice(0, 10));
         if (!bookingForDate) {
           seat.bookings.push({ date: bookingDate, isBooked: true });
           assignedSeat = seat.seatNumber;
@@ -227,9 +225,7 @@ export const createBooking = async (req, res) => {
     let totalAmount = 0;
     for (const traveler of assignedTravelers) {
       const seatTypeInfo = train.seatTypes.find(s => s.class === traveler.seatType);
-      if (!seatTypeInfo) {
-        return res.status(400).json({ message: `Seat type '${traveler.seatType}' not found in train` });
-      }
+      if (!seatTypeInfo) return res.status(400).json({ message: `Seat type '${traveler.seatType}' not found in train` });
       totalAmount += seatTypeInfo.fare;
     }
     const unifiedBooking = new UnifiedBooking({

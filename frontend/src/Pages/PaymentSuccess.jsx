@@ -26,13 +26,13 @@ const PaymentSuccess = () => {
           endpoint = `/bus/booking?session_id=${sessionId}`;
           break;
         case "flight":
-          endpoint = `/flight/confirm?session_id=${sessionId}`;
+          endpoint = `/flight/booking?session_id=${sessionId}`;
           break;
         case "train":
           endpoint = `/train/booking?session_id=${sessionId}`;
           break;
         case "hotel":
-          endpoint = `/hotel/confirm?session_id=${sessionId}`;
+          endpoint = `/hotel/booking?session_id=${sessionId}`;
           break;
         default:
           throw new Error("Unknown booking type");

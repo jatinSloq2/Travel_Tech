@@ -1,12 +1,9 @@
 import { Router } from "express"
 import Stripe from "stripe"
-
 const payRouter = Router()
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-
 payRouter.post("/create-checkout-session", async (req, res) => {
     const { amount, bookingDetails, bookingType } = req.body;
-
     try {
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -32,7 +29,6 @@ payRouter.post("/create-checkout-session", async (req, res) => {
                 bookingDetails: JSON.stringify(bookingDetails),
             },
         });
-
         res.json({ id: session.id });
     } catch (err) {
         console.error('Stripe session error:', err);
@@ -41,23 +37,16 @@ payRouter.post("/create-checkout-session", async (req, res) => {
 })
 
 payRouter.get("/get-booking-type", async (req, res) => {
-  try {
-    const { session_id } = req.query;
-
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-    console.log("Session", session)
-    console.log("MetaData", session.metadata)
-    const bookingType = session?.metadata?.bookingType;
-
-    if (!bookingType) {
-      return res.status(400).json({ error: "Booking type not found in session metadata" });
+    try {
+        const { session_id } = req.query;
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+        const bookingType = session?.metadata?.bookingType;
+        if (!bookingType) return res.status(400).json({ error: "Booking type not found in session metadata" });
+        res.json({ bookingType });
+    } catch (err) {
+        console.error("Error retrieving session:", err.message);
+        res.status(500).json({ error: "Internal server error" });
     }
-
-    res.json({ bookingType });
-  } catch (err) {
-    console.error("Error retrieving session:", err.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
 })
 
 export default payRouter
