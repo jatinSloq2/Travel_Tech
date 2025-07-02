@@ -120,6 +120,91 @@ export const getHotelByID = async (req, res) => {
   }
 };
 
+export const validateHotelBookingInput = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const {
+      hotelId: hotel,
+      roomId: room,
+      checkIn,
+      checkOut,
+      totalGuests,
+      totalRooms,
+    } = req.body;
+
+    if (!userId)
+      return res.status(401).json({ success: false, message: "User not authenticated" });
+
+    if (!hotel || !room || !checkIn || !checkOut || !totalGuests || !totalRooms)
+      return res.status(400).json({ success: false, message: "Missing booking details" });
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (isNaN(checkInDate) || isNaN(checkOutDate))
+      return res.status(400).json({ success: false, message: "Invalid date format" });
+
+    if (checkInDate >= checkOutDate)
+      return res.status(400).json({ success: false, message: "Check-out must be after check-in" });
+
+    if (checkInDate < today)
+      return res.status(400).json({ success: false, message: "Check-in cannot be in the past" });
+
+    const stayDuration = (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24);
+    if (stayDuration > 15)
+      return res.status(400).json({ success: false, message: "Stay cannot exceed 15 days" });
+
+    const advanceDays = (checkInDate - today) / (1000 * 60 * 60 * 24);
+    if (advanceDays > 180)
+      return res.status(400).json({ success: false, message: "Booking cannot be more than 6 months in advance" });
+
+    const roomData = await Room.findById(room);
+    if (!roomData)
+      return res.status(404).json({ success: false, message: "Room not found" });
+
+    const hotelDoc = await Hotel.findById(hotel);
+    if (!hotelDoc)
+      return res.status(404).json({ success: false, message: "Hotel not found" });
+
+    const roomCapacity = roomData.totalRooms;
+
+    const overlappingBookings = await UnifiedBooking.find({
+      bookingType: "hotel",
+      status: "confirmed",
+      "details.room": room,
+      $or: [
+        {
+          "details.checkIn": { $lt: checkOutDate },
+          "details.checkOut": { $gt: checkInDate },
+        },
+      ],
+    });
+
+    const roomsBooked = overlappingBookings.reduce(
+      (sum, b) => sum + (b.details.totalRooms || 0),
+      0
+    );
+    const roomsAvailable = roomCapacity - roomsBooked;
+
+    if (roomsAvailable < totalRooms) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${roomsAvailable} room(s) available for the selected dates`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Validation passed. Hotel and room availability confirmed.",
+    });
+  } catch (error) {
+    console.error("❌ validateHotelBookingInput error:", error.message);
+    return res.status(500).json({ success: false, message: "Validation error" });
+  }
+};
+
 export const createBooking = async (req, res) => {
   try {
     const { id: userId, first_name, last_name } = req.user;

@@ -21,6 +21,7 @@ const BookingModal = ({
   setTotalRooms,
   onClose,
   onSubmit,
+  loading
 }) => {
   if (!selectedRoom) return null;
 
@@ -91,6 +92,16 @@ const BookingModal = ({
     setLocalError("");
     onSubmit();
   };
+
+   if (loading) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div className="text-white text-lg font-semibold animate-pulse">
+        Validating seat availability...
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 p-2 sm:p-4 overflow-y-auto">

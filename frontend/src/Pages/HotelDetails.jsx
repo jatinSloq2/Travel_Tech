@@ -143,8 +143,29 @@ const HotelPage = () => {
       totalGuests,
       totalRooms,
     };
+    // setLoading(true);
 
     try {
+      const validationRes = await axiosInstance.post(
+        "/hotel/booking/validate/hotel",
+        {
+          hotelId: hotel._id,
+          roomId: selectedRoom._id,
+          checkIn,
+          checkOut,
+          totalGuests,
+          totalRooms,
+        }
+      );
+      if (!validationRes.data.success) {
+        setErrorMessage(validationRes.data.message || "Validation failed");
+        console.warn(
+          "Validation error from backend:",
+          validationRes.data.message
+        );
+        return;
+      }
+
       const { data } = await axiosInstance.post(
         "/payment/create-checkout-session",
         {
@@ -161,7 +182,11 @@ const HotelPage = () => {
         "Stripe checkout error:",
         error.response?.data || error.message
       );
-      setErrorMessage("Payment failed. Please try again.");
+        setErrorMessage(error.response.data.message);
+      
+    } finally {
+      setLoading(false);
+      // setErrorMessage("");
     }
   };
 
@@ -245,6 +270,7 @@ const HotelPage = () => {
           onClose={closeModal}
           onSubmit={handleBookingSubmit}
           primaryColor="orange"
+          loading={loading}
         />
       )}
     </div>
