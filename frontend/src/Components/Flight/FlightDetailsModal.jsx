@@ -98,8 +98,22 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
 
     const bookingDetails = { travelers, email, flights };
 
+    setLoading(true)
+
     try {
-      // ✅ Create Stripe Checkout session
+      const validationRes = await axiosInstance.post(
+        "/flight/booking/validate/flight",
+        {
+          travelers,
+          email,
+          flights,
+        }
+      );
+
+      if (!validationRes.data.success) {
+        throw new Error(validationRes.data.message || "Validation failed");
+      }
+
       const { data } = await axiosInstance.post(
         "/payment/create-checkout-session",
         {
@@ -116,7 +130,9 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
         error.response?.data?.message || "Failed to start payment.";
       alert(message);
       console.error("Stripe checkout error:", error);
-    }
+    } finally {
+    setLoading(false);
+  }
   };
 
   // const handleConfirmBooking = async () => {
@@ -162,6 +178,17 @@ const FlightDetailsModal = ({ isOpen, onClose, flightIds, date }) => {
   // };
 
   if (!isOpen) return null;
+
+  
+  if (loading) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div className="text-white text-lg font-semibold animate-pulse">
+        Validating seat availability...
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="fixed inset-0 bg-black/40 flex justify-center items-start p-6 overflow-auto z-50">

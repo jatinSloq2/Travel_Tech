@@ -1,5 +1,5 @@
 import express from "express"
-import { addFlightReview, deleteUserBooking, flightBooking, getAllAirport, getFlightById, getFlightsByFilter, validateFlightBookingInput } from "../controllers/flights.controller.js"
+import { addFlightReview, flightBooking, getAllAirport, getFlightById, getFlightsByFilter, validateFlightBookingInput } from "../controllers/flights.controller.js"
 import { authenticateToken } from "../middlewares/authMiddleware.js"
 
 const fliRouter = express.Router()
