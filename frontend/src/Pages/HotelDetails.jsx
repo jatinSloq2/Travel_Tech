@@ -90,7 +90,6 @@ const HotelPage = () => {
     setName("");
   }, []);
 
- 
   const openGalleryModal = (index) => {
     setCurrentImageIndex(index);
     setGalleryModalOpen(true);

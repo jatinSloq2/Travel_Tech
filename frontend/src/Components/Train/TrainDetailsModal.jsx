@@ -72,7 +72,7 @@ const handleConfirmBooking = async () => {
     seatType: selectedSeatClass,
   }));
 
-  setIsLoading(true); // Start loading
+  setIsLoading(true); 
 
   try {
     // 1. Validate first

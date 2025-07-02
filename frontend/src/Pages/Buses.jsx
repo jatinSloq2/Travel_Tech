@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState } from "react";
-import axiosInstance from "../utils/axiosInstance";
-import { BusFront } from "lucide-react";
-import FilterSidebar from "../Components/FilterSideBar";
-import { Filter } from "lucide-react";
-import BusSearchForm from "../Components/Bus/BusSearchForm";
-import BusList from "../Components/Bus/BusList";
-import SeatBookingModal from "../Components/Bus/SeatBookingModal";
-import { addDays, format } from "date-fns";
-import { FaBus } from "react-icons/fa";
 import { loadStripe } from "@stripe/stripe-js";
+import { addDays, format } from "date-fns";
+import { Filter } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { FaBus } from "react-icons/fa";
+import BusList from "../Components/Bus/BusList";
+import BusSearchForm from "../Components/Bus/BusSearchForm";
+import SeatBookingModal from "../Components/Bus/SeatBookingModal";
+import FilterSidebar from "../Components/FilterSideBar";
+import axiosInstance from "../utils/axiosInstance";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const Buses = () => {
   const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
@@ -56,7 +57,7 @@ const Buses = () => {
         Object.entries(filters).filter(([_, v]) => v)
       );
       const { data } = await axiosInstance.get("/bus/buses", { params });
-      console.log(data)
+      console.log(data);
       setBuses(Array.isArray(data?.buses) ? data.buses : []);
       setTimeout(() => {
         if (searchFormRef.current) {
@@ -135,13 +136,27 @@ const Buses = () => {
     }, 0);
   };
 
-  const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-
   const handleStripeCheckout = async () => {
+    setBookingLoading(true)
     try {
-      const { data } = await axiosInstance.post("/payment/create-checkout-session",
+      const validationRes = await axiosInstance.post(
+        "/bus/booking/validate/bus",
         {
-          bookingType: 'bus',
+          busId: selectedBus._id,
+          date: filters.date,
+          selectedSeats: seatSelections,
+          travelers,
+        }
+      );
+
+      if (!validationRes.data.success) {
+        throw new Error(validationRes.data.message || "Validation failed");
+      }
+
+      const { data } = await axiosInstance.post(
+        "/payment/create-checkout-session",
+        {
+          bookingType: "bus",
           amount: calcTotal(),
           bookingDetails: {
             busId: selectedBus._id,
@@ -159,6 +174,8 @@ const Buses = () => {
         "Stripe checkout error:",
         error.response?.data || error.message
       );
+    } finally{
+      setBookingLoading(false)
     }
   };
   const handleJourneyDateChange = (newDate) => {
@@ -190,6 +207,16 @@ const Buses = () => {
       placeholder: "Enter max price",
     },
   ];
+
+   if (bookingLoading) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div className="text-white text-lg font-semibold animate-pulse">
+        Validating seat availability...
+      </div>
+    </div>
+  );
+}
 
   return (
     <section className="relative">

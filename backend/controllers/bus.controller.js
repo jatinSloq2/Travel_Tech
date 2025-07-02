@@ -234,6 +234,57 @@ export const getBusByID = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+export const validateBusBookingInput = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { busId, date, selectedSeats, travelers } = req.body;
+
+    if (!userId) return res.status(401).json({ success: false, message: "User not authenticated" });
+    if (!busId || !date || !Array.isArray(selectedSeats) || !selectedSeats.length || !Array.isArray(travelers) || !travelers.length) {
+      return res.status(400).json({ success: false, message: "Missing or invalid booking details" });
+    }
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate.getTime())) return res.status(400).json({ success: false, message: "Invalid travel date" });
+
+    const dateKey = parsedDate.toISOString().split("T")[0];
+
+    const bus = await Bus.findById(busId).lean();
+    if (!bus) return res.status(404).json({ success: false, message: "Bus not found" });
+
+    const seatDoc = await Seat.findOne({ bus: busId });
+    if (!seatDoc) return res.status(404).json({ success: false, message: "Seat data not found for this bus" });
+
+    const allSeats = Object.values(seatDoc.seatTypes || {}).flat();
+
+    const existingBookings = await UnifiedBooking.find({
+      bookingType: "bus",
+      status: "confirmed",
+      "details.bus": busId,
+      "details.travellers.date": parsedDate,
+    }).lean();
+
+    const alreadyBooked = new Set();
+    existingBookings.forEach(b => {
+      (b.details.travellers || []).forEach(t => {
+        if (new Date(t.date).toISOString().split("T")[0] === dateKey && t.seatNumber) {
+          alreadyBooked.add(t.seatNumber);
+        }
+      });
+    });
+
+    const allExist = selectedSeats.every(seat => allSeats.includes(seat));
+    const allAvailable = selectedSeats.every(seat => !alreadyBooked.has(seat));
+
+    if (!allExist) return res.status(400).json({ success: false, message: "One or more selected seats are invalid" });
+    if (!allAvailable) return res.status(409).json({ success: false, message: "One or more selected seats are already booked" });
+
+    return res.status(200).json({ success: true, message: "Validation passed" });
+  } catch (err) {
+    console.error("❌ validateBusBookingInput error:", err.message);
+    return res.status(500).json({ success: false, message: "Server error during validation" });
+  }
+};
 export const createBooking = async (req, res) => {
   try {
     const { session_id } = req.query;

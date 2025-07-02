@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { MapPin, X, IndianRupee } from "lucide-react"; 
+import { IndianRupee, X } from "lucide-react";
+import { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
