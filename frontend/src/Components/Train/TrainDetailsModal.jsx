@@ -18,6 +18,7 @@ const TrainDetailsModal = ({
   const [travelers, setTravelers] = useState([{ name: "", phone: "" }]);
   const [email, setEmail] = useState("");
   const [selectedSeatClass, setSelectedSeatClass] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   useEffect(() => {
     setTravelers((prev) => {
       const updated = [...prev];
@@ -47,51 +48,121 @@ const TrainDetailsModal = ({
 
   const totalFare = selectedSeatFare * numTravelers;
 
-  const handleConfirmBooking = async () => {
-    for (let i = 0; i < travelers.length; i++) {
-      const t = travelers[i];
-      if (!t.name.trim() || !t.phone.trim()) {
-        alert(`Please fill in name and phone for traveler ${i + 1}.`);
-        return;
+const handleConfirmBooking = async () => {
+  for (let i = 0; i < travelers.length; i++) {
+    const t = travelers[i];
+    if (!t.name.trim() || !t.phone.trim()) {
+      alert(`Please fill in name and phone for traveler ${i + 1}.`);
+      return;
+    }
+  }
+
+  if (!selectedSeatClass) {
+    alert("Please select a seat class.");
+    return;
+  }
+
+  if (!email.trim()) {
+    alert("Please enter contact email.");
+    return;
+  }
+
+  const travelersWithSeat = travelers.map((t) => ({
+    ...t,
+    seatType: selectedSeatClass,
+  }));
+
+  setIsLoading(true); // Start loading
+
+  try {
+    // 1. Validate first
+    const validationRes = await axiosInstance.post("/train/booking/validate/train", {
+      trainId: trainDetails?.trainId,
+      date: formatLocalDate(date),
+      travelers: travelersWithSeat,
+    });
+
+    if (!validationRes.data.success) {
+      throw new Error(validationRes.data.message || "Validation failed");
+    }
+
+    // 2. Create Stripe session
+    const { data } = await axiosInstance.post(
+      "/payment/create-checkout-session",
+      {
+        bookingType: "train",
+        amount: totalFare,
+        bookingDetails: {
+          trainId: trainDetails?.trainId,
+          date: formatLocalDate(date),
+          travelers: travelersWithSeat,
+        },
       }
-    }
+    );
 
-    if (!selectedSeatClass) {
-      alert("Please select a seat class.");
-      return;
-    }
+    const stripe = await stripePromise;
+    await stripe.redirectToCheckout({ sessionId: data.id });
 
-    if (!email.trim()) {
-      alert("Please enter contact email.");
-      return;
-    }
-    const travelersWithSeat = travelers.map((t) => ({
-      ...t,
-      seatType: selectedSeatClass,
-    }));
-    try {
-      const { data } = await axiosInstance.post(
-        "/payment/create-checkout-session",
-        {
-          bookingType: "train",
-          amount: totalFare,
-          bookingDetails: {
-            trainId: trainDetails?.trainId,
-            date: formatLocalDate(date),
-            travelers: travelersWithSeat,
-          },
-        }
-      );
+  } catch (error) {
+    console.error("Booking error:", error.response?.data || error.message);
+    alert(error.response?.data?.message || error.message || "Something went wrong.");
+  } finally {
+    setIsLoading(false); // End loading
+  }
+};
 
-      const stripe = await stripePromise;
-      await stripe.redirectToCheckout({ sessionId: data.id });
-    } catch (error) {
-      console.error(
-        "Stripe checkout error:",
-        error.response?.data || error.message
-      );
-    }
-  };
+
+
+
+
+
+
+
+  // const handleConfirmBooking = async () => {
+  //   for (let i = 0; i < travelers.length; i++) {
+  //     const t = travelers[i];
+  //     if (!t.name.trim() || !t.phone.trim()) {
+  //       alert(`Please fill in name and phone for traveler ${i + 1}.`);
+  //       return;
+  //     }
+  //   }
+
+  //   if (!selectedSeatClass) {
+  //     alert("Please select a seat class.");
+  //     return;
+  //   }
+
+  //   if (!email.trim()) {
+  //     alert("Please enter contact email.");
+  //     return;
+  //   }
+  //   const travelersWithSeat = travelers.map((t) => ({
+  //     ...t,
+  //     seatType: selectedSeatClass,
+  //   }));
+  //   try {
+  //     const { data } = await axiosInstance.post(
+  //       "/payment/create-checkout-session",
+  //       {
+  //         bookingType: "train",
+  //         amount: totalFare,
+  //         bookingDetails: {
+  //           trainId: trainDetails?.trainId,
+  //           date: formatLocalDate(date),
+  //           travelers: travelersWithSeat,
+  //         },
+  //       }
+  //     );
+
+  //     const stripe = await stripePromise;
+  //     await stripe.redirectToCheckout({ sessionId: data.id });
+  //   } catch (error) {
+  //     console.error(
+  //       "Stripe checkout error:",
+  //       error.response?.data || error.message
+  //     );
+  //   }
+  // };
 
   const dayMap = {
     Sun: 0,
@@ -117,6 +188,16 @@ const TrainDetailsModal = ({
       </div>
     );
   }
+
+  if (isLoading) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div className="text-white text-lg font-semibold animate-pulse">
+        Validating seat availability...
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="fixed inset-0 bg-black/40 flex justify-center items-start p-6 overflow-auto z-50">

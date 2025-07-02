@@ -11,16 +11,11 @@ const PaymentSuccess = () => {
 
   const confirmBooking = async () => {
     try {
-      // Step 1: Get booking type from Stripe session
       const typeRes = await axiosInstance.get(
         `/payment/get-booking-type?session_id=${sessionId}`
       );
-
       const bookingType = typeRes.data.bookingType;
-      console.log("✅ Booking Type:", bookingType);
-
       let endpoint = "";
-
       switch (bookingType) {
         case "bus":
           endpoint = `/bus/booking?session_id=${sessionId}`;
@@ -37,11 +32,7 @@ const PaymentSuccess = () => {
         default:
           throw new Error("Unknown booking type");
       }
-
-      // Step 2: Confirm booking
-      const confirmRes = await axiosInstance.post(endpoint);
-      console.log("✅ Booking Confirmed:", confirmRes.data);
-
+      await axiosInstance.post(endpoint);
       setStatus("success");
       setMessage(
         "Your booking has been confirmed. Check your email for details."

@@ -223,7 +223,113 @@ const assignRandomSeat = (allSeats, bookedSeatsSet) => {
   return availableSeats[randomIndex];
 };
 
+export const validateFlightBookingInput = async (req, res) => {
+  const userId = req.user?.id;
+  const { travelers, email, flights } = req.body;
 
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  if (!Array.isArray(travelers) || travelers.length === 0)
+    return res.status(400).json({ message: "At least one traveler is required" });
+  if (!email || !email.trim())
+    return res.status(400).json({ message: "Contact email is required" });
+  if (!Array.isArray(flights) || flights.length === 0)
+    return res.status(400).json({ message: "At least one flight segment is required" });
+
+  try {
+    const flightIds = flights.map((f) => f.flight);
+    const flightDocs = await Flight.find({ _id: { $in: flightIds } }).lean();
+
+    const flightMap = new Map();
+    for (const flight of flightDocs) {
+      flightMap.set(flight._id.toString(), flight);
+    }
+
+    const bookedSeatsMap = new Map();
+
+    for (const segment of flights) {
+      const { flight: flightId, date, seatType } = segment;
+
+      const flight = flightMap.get(flightId);
+      if (!flight) {
+        return res.status(404).json({ message: `Flight ${flightId} not found` });
+      }
+
+      const seatTypeInfo = flight.seatTypes.find((s) => s.type === seatType);
+      if (!seatTypeInfo) {
+        return res.status(400).json({
+          message: `Seat type '${seatType}' not found on flight ${flightId}`,
+        });
+      }
+
+      const dateISO = new Date(date).toISOString().split("T")[0];
+      const key = `${flightId}_${dateISO}_${seatType}`;
+
+      const bookings = await UnifiedBooking.find({
+        bookingType: { $in: ["flight", "package"] },
+        travelDate: new Date(date),
+        status: "confirmed",
+        $or: [
+          {
+            bookingType: "flight",
+            "details.travelers.flight": flightId,
+            "details.travelers.seatType": seatType,
+          },
+          {
+            bookingType: "package",
+            "details.seats": {
+              $elemMatch: {
+                mode: "Flight",
+                refId: flightId,
+                classOrSeat: seatType,
+              },
+            },
+          },
+        ],
+      }).lean();
+
+      const booked = new Set();
+      bookings.forEach((booking) => {
+        if (booking.bookingType === "flight") {
+          booking.details.travelers.forEach((t) => {
+            if (
+              t.flight.toString() === flightId &&
+              t.date.toISOString().split("T")[0] === dateISO &&
+              t.seatType === seatType
+            ) {
+              booked.add(t.seatNo);
+            }
+          });
+        } else {
+          booking.details.seats.forEach((seatGroup) => {
+            if (
+              seatGroup.mode === "Flight" &&
+              seatGroup.refId.toString() === flightId &&
+              seatGroup.classOrSeat === seatType
+            ) {
+              seatGroup.seats.forEach((seatNo) => booked.add(seatNo));
+            }
+          });
+        }
+      });
+
+      const allSeats = seatTypeInfo.seats.map((s) => s.seatNo);
+      const availableSeats = allSeats.filter((s) => !booked.has(s));
+
+      if (availableSeats.length < travelers.length) {
+        return res.status(409).json({
+          message: `Only ${availableSeats.length} seats available in ${seatType} on flight ${flightId} for ${date}, but ${travelers.length} requested`,
+        });
+      }
+
+      bookedSeatsMap.set(key, booked);
+    }
+
+    return res.status(200).json({ success: true, message: "Validation passed" });
+  } catch (error) {
+    console.error("❌ Error in validation:", error);
+    return res.status(500).json({ message: "Server error during validation" });
+  }
+};
 
 export const flightBooking = async (req, res) => {
   const userId = req.user.id;
@@ -402,6 +508,12 @@ export const flightBooking = async (req, res) => {
     res.status(500).json({ message: "Failed to confirm Stripe flight booking" });
   }
 };
+
+
+
+
+
+
 
 // export const flightBooking = async (req, res) => {
 //   const userId = req.user.id;

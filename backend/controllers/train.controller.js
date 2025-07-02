@@ -147,6 +147,49 @@ export const getTrainById = async (req, res) => {
   }
 };
 
+export const validateTrainBookingFromQuery = async (req, res) => {
+  const { travelers, trainId, date } = req.body;
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+  if (!trainId || !mongoose.Types.ObjectId.isValid(trainId)) return res.status(400).json({ message: "Invalid train ID" });
+  if (!date || !Array.isArray(travelers) || travelers.length === 0) return res.status(400).json({ message: "Date and travelers are required" });
+  const bookingDate = new Date(date);
+  if (isNaN(bookingDate.getTime())) return res.status(400).json({ message: "Invalid date format" });
+  try {
+    const train = await Train.findById(trainId).lean();
+    if (!train) return res.status(404).json({ message: "Train not found" });
+
+    const seatTypeCountMap = {};
+    for (const traveler of travelers) {
+      if (!traveler.seatType)return res.status(400).json({ message: "Seat type missing for traveler" });
+      seatTypeCountMap[traveler.seatType] =
+        (seatTypeCountMap[traveler.seatType] || 0) + 1;
+    }
+    for (const seatType in seatTypeCountMap) {
+      const requiredSeats = seatTypeCountMap[seatType];
+      const seatDoc = await TrainSeat.findOne({ train: trainId, class: seatType });
+
+      if (!seatDoc)return res.status(404).json({ message: `Seat data not found for class ${seatType}` });
+      const availableSeats = seatDoc.seats.filter(seat => {
+        const bookingForDate = seat.bookings.find(
+          b => new Date(b.date).toISOString().slice(0, 10) === bookingDate.toISOString().slice(0, 10)
+        );
+        return !bookingForDate || !bookingForDate.isBooked;
+      });
+
+      if (availableSeats.length < requiredSeats) {
+        return res.status(400).json({
+          message: `Only ${availableSeats.length} seats available in ${seatType}, but ${requiredSeats} requested.`,
+        });
+      }
+    }
+    return res.status(200).json({ success: true, message: "Validation passed" });
+  } catch (error) {
+    console.error("💥 Error during validation:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const createBooking = async (req, res) => {
   const { session_id } = req.query;
   const userId = req.user?.id
