@@ -37,6 +37,8 @@ import AddBus from "../Pages/AddBus";
 import EditBus from "../Pages/EditBus";
 import PackageDetail from "../Pages/PackageDetail";
 import PaymentSuccess from "../Pages/PaymentSuccess";
+import PaymentRoutes from "./PaymentsRoutes";
+import PaymentCancelled from "../Pages/PaymentCancelled";
 //-----------------------------------------------------
 
 const routes = createBrowserRouter([
@@ -44,7 +46,6 @@ const routes = createBrowserRouter([
   {
     element: <OpenRoutes />,
     children: [
-    { path: "/payment-success", element: <PaymentSuccess /> },
       { path: "/hotels", element: <Hotels /> },
        { path: "/hotels/:id", element: <HotelDetails /> },
       { path: "/", element: <Flights /> },
@@ -117,6 +118,13 @@ const routes = createBrowserRouter([
       { path: "/signup", element: <Signup /> },
       { path: "/forgot-password", element: <ForgetPassword /> },
     ],
+  },
+  {
+    element: <PaymentRoutes allowedRoles={["ADMIN", "VENDOR", "USER"]}/>,
+    children : [
+      { path: "/payment-success", element: <PaymentSuccess /> },
+      { path: "/payment-cancelled", element: <PaymentCancelled/>},
+    ]
   },
 ]);
 
