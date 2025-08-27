@@ -7,6 +7,7 @@ import TrainSearchForm from "../Components/Train/TrainSearchForm";
 import TrainList from "../Components/Train/TrainList";
 import TrainDetailsModal from "../Components/Train/TrainDetailsModal";
 import FilterSidebar from "../Components/FilterSideBar";
+import OffersCarousel from "../Components/OfferPart";
 
 const TrainsPage = () => {
   const [stations, setStations] = useState([]);
@@ -205,6 +206,12 @@ const TrainsPage = () => {
           </>
         )}
       </div>
+       <div className="mb-12">
+                <OffersCarousel
+                  serviceType="trains"
+                // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+                />
+              </div>
 
       {/* Train Details Modal */}
       {modalOpen && (

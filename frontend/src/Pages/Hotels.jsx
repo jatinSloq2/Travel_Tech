@@ -8,6 +8,7 @@ import HotelFilter from "../Components/Hotel/HotelFilter";
 import HotelList from "../Components/Hotel/HotelList";
 import Pagination from "../Components/Pagination";
 import FilterSidebar from "../Components/FilterSideBar";
+import OffersCarousel from "../Components/OfferPart";
 
 const HotelPage = () => {
   const { state, dispatch, fetchHotels } = useContext(HotelContext);
@@ -96,9 +97,8 @@ const HotelPage = () => {
 
         <div
           ref={searchFormRef}
-          className={`z-20 rounded-md p-4 mb-12 transition-all duration-300 ${
-            hasSearched ? "md:sticky top-0" : ""
-          }`}
+          className={`z-20 rounded-md p-4 mb-12 transition-all duration-300 ${hasSearched ? "md:sticky top-0" : ""
+            }`}
         >
           <HotelFilter
             searchCity={form.city}
@@ -199,14 +199,29 @@ const HotelPage = () => {
             />
           </div>
         </div>
-
         <div>
           {!hasSearched ? (
-            <p className="text-center text-gray-600 mt-8">
-              Please enter search criteria and click Search to see hotels.
-            </p>
+            <>
+              <p className="text-center text-gray-600 mt-8">
+                Please enter search criteria and click Search to see hotels.
+              </p>
+              <div className="mb-12">
+                <OffersCarousel
+                  serviceType="hotels"
+                // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+                />
+              </div>
+            </>
           ) : loading ? (
-            <p className="text-center text-gray-600 mt-8">Loading hotels...</p>
+            <>
+              <p className="text-center text-gray-600 mt-8">Loading hotels...</p>
+              <div className="mb-12">
+                <OffersCarousel
+                  serviceType="hotels"
+                // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+                />
+              </div>
+            </>
           ) : error ? (
             <section
               role="region"
@@ -222,15 +237,29 @@ const HotelPage = () => {
                   </p>
                 </div>
               </div>
+              <div className="mb-12">
+                <OffersCarousel
+                  serviceType="hotels"
+                // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+                />
+              </div>
             </section>
-          ) : (
-            Math.ceil(total / limit) > 1 && (
-              <Pagination
-                total={total}
-                limit={limit}
-                currentPage={page}
-                onPageChange={(p) => dispatch({ type: "SET_PAGE", payload: p })}
-              />
+          ) : ((
+              <>
+                <div className="mb-12">
+                  <OffersCarousel
+                    serviceType="hotel"
+                  // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+                  />
+                </div>
+
+                <Pagination
+                  total={total}
+                  limit={limit}
+                  currentPage={page}
+                  onPageChange={(p) => dispatch({ type: "SET_PAGE", payload: p })}
+                />
+              </>
             )
           )}
         </div>

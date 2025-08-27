@@ -7,6 +7,7 @@ import BusList from "../Components/Bus/BusList";
 import BusSearchForm from "../Components/Bus/BusSearchForm";
 import SeatBookingModal from "../Components/Bus/SeatBookingModal";
 import FilterSidebar from "../Components/FilterSideBar";
+import OffersCarousel from "../Components/OfferPart";
 import axiosInstance from "../utils/axiosInstance";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -174,7 +175,7 @@ const Buses = () => {
         "Stripe checkout error:",
         error.response?.data || error.message
       );
-    } finally{
+    } finally {
       setBookingLoading(false)
     }
   };
@@ -208,15 +209,15 @@ const Buses = () => {
     },
   ];
 
-   if (bookingLoading) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-      <div className="text-white text-lg font-semibold animate-pulse">
-        Validating seat availability...
+  if (bookingLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+        <div className="text-white text-lg font-semibold animate-pulse">
+          Validating seat availability...
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <section className="relative">
@@ -240,9 +241,8 @@ const Buses = () => {
         </h1>
         <div
           ref={searchFormRef}
-          className={`z-20 rounded-md p-4 mb-12 transition-all duration-300 ${
-            searched ? "md:sticky top-0" : ""
-          }`}
+          className={`z-20 rounded-md p-4 mb-12 transition-all duration-300 ${searched ? "md:sticky top-0" : ""
+            }`}
         >
           <BusSearchForm
             filters={filters}
@@ -329,6 +329,13 @@ const Buses = () => {
           </div>
         </div>
       )}
+
+      <div className="mb-12">
+        <OffersCarousel
+          serviceType="bus"
+        // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+        />
+      </div>
     </section>
   );
 };

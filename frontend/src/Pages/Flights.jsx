@@ -4,7 +4,9 @@ import FilterSidebar from "../Components/FilterSideBar";
 import FlightDetailsModal from "../Components/Flight/FlightDetailsModal";
 import FlightList from "../Components/Flight/FlightList";
 import FlightSearchForm from "../Components/Flight/FlightSearchForm";
+import OfferPart from "../Components/OfferPart"; // Import the offers carousel
 import axiosInstance from "../utils/axiosInstance";
+
 const FlightsPage = () => {
   const [airports, setAirports] = useState([]);
   const [fromQuery, setFromQuery] = useState("");
@@ -134,11 +136,12 @@ const FlightsPage = () => {
           <PlaneTakeoff className="w-10 h-10" />
           Let's Fly
         </h1>
+
+        {/* Search Form */}
         <div
           ref={searchFormRef}
-          className={`z-20 rounded-md py-4 px-0 mb-12 transition-all duration-300 ${
-            searched ? "md:sticky top-0" : ""
-          }`}
+          className={`z-20 rounded-md py-4 px-0 mb-12 transition-all duration-300 ${searched ? "md:sticky top-0" : ""
+            }`}
         >
           <FlightSearchForm
             airports={airports}
@@ -151,7 +154,6 @@ const FlightsPage = () => {
             onSearch={handleSearch}
           />
         </div>
-
 
 
         <div className="grid gap-6 md:grid-cols-5 grid-cols-1">
@@ -208,9 +210,8 @@ const FlightsPage = () => {
 
           {/* Flight Cards */}
           <div
-            className={`${
-              flightResults.length > 0 ? "md:col-span-4" : "md:col-span-5"
-            }`}
+            className={`${flightResults.length > 0 ? "md:col-span-4" : "md:col-span-5"
+              }`}
           >
             <FlightList
               flights={flightResults}
@@ -221,6 +222,25 @@ const FlightsPage = () => {
           </div>
         </div>
       </div>
+      {/* Offers Carousel - Show when no search has been made or no results */}
+
+      <div className="mb-12">
+        <OfferPart
+          serviceType="flights"
+        // apiEndpoint="/api/offers/flights" // Uncomment when API is ready
+        />
+      </div>
+
+      {/* Alternative: Show offers even with results but make it smaller */}
+      {/* You can use this instead if you want to always show offers */}
+      {/* 
+        <div className={`mb-12 ${searched && flightResults.length > 0 ? 'scale-90' : ''} transition-transform duration-300`}>
+          <OfferPart 
+            serviceType="flights"
+            // apiEndpoint="/api/offers/flights"
+          />
+        </div>
+        */}
       <FlightDetailsModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
