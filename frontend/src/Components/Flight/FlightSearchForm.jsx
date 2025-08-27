@@ -1,8 +1,7 @@
-import React from "react";
-import { CalendarDays, Search, Clock } from "lucide-react";
+import { parseISO } from "date-fns";
+import { CalendarDays, Clock, Search } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { parseISO } from "date-fns";
 import AirportAutocomplete from "./AirportAutocomplete";
 
 const FlightSearchForm = ({

@@ -1,12 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
-import axiosInstance from "../utils/axiosInstance";
-import { PlaneTakeoff } from "lucide-react";
-import { Filter, X } from "lucide-react";
-import FlightSearchForm from "../Components/Flight/FlightSearchForm";
-import FlightList from "../Components/Flight/FlightList";
-import FlightDetailsModal from "../Components/Flight/FlightDetailsModal";
+import { Filter, PlaneTakeoff, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import FilterSidebar from "../Components/FilterSideBar";
-import OffersCarousel from "../Components/Offers";
+import FlightDetailsModal from "../Components/Flight/FlightDetailsModal";
+import FlightList from "../Components/Flight/FlightList";
+import FlightSearchForm from "../Components/Flight/FlightSearchForm";
+import axiosInstance from "../utils/axiosInstance";
 const FlightsPage = () => {
   const [airports, setAirports] = useState([]);
   const [fromQuery, setFromQuery] = useState("");
@@ -223,18 +221,12 @@ const FlightsPage = () => {
           </div>
         </div>
       </div>
-
-      {/* Flight Details Modal */}
       <FlightDetailsModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         flightIds={modalFlightIds}
         date={date}
       />
-
-
-
-      {/* <OffersCarousel/> */}
     </section>
   );
 };

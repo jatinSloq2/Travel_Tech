@@ -11,85 +11,83 @@ import UnifiedBooking from "../models/booking.js"
 
 
 const cookieOptions = {
-    httpOnly: true,
-    secure: false,
-    sameSite: "Lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/',
+  httpOnly: true,
+  secure: false,
+  sameSite: "Lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: '/',
 };
 
 export const user = async (req, res) => {
-    try {
-        const user = await getUserById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ error: "User not found" });
-        }
-        console.log(user)
-        res.json({ user });
-    } catch (error) {
-        console.error("Error in /user/me:", error.message);
-        return res.status(401).json({ error: "Invalid or expired token" });
+  try {
+    const user = await getUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
+    console.log(user)
+    res.json({ user });
+  } catch (error) {
+    console.error("Error in /user/me:", error.message);
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
 };
 export const login = async (req, res) => {
-    const { email, password } = req.body;
-    try {
-        const user = await getUserWithPasswordByEmail(email);
-        if (!user) {
-            return res.status(401).json({ error: "Invalid credentials" });
-        }
-
-        const isMatch = await bcryptjs.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ error: "Invalid credentials" });
-        }
-
-        const token = jwt.sign(
-            { id: user.user_id, role: user.role, first_name: user.first_name,last_name: user.last_name , email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-
-        res.cookie('token', token, cookieOptions);
-        res.json({ message: "Login success" });
-    } catch (err) {
-        console.error("Login error:", err.message);
-        res.status(500).json({ error: "Authentication failed" });
+  const { email, password } = req.body;
+  try {
+    const user = await getUserWithPasswordByEmail(email);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials email" });
     }
+
+    const isMatch = await bcryptjs.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user.user_id, role: user.role, first_name: user.first_name, last_name: user.last_name, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie('token', token, cookieOptions);
+    res.json({ message: "Login success" });
+  } catch (err) {
+    console.error("Login error:", err.message);
+    res.status(500).json({ error: "Authentication failed" });
+  }
 };
 export const logout = (req, res) => {
-    res.clearCookie("token", cookieOptions);
-    return res.status(200).json({ message: "Logged out successfully" });
+  res.clearCookie("token", cookieOptions);
+  return res.status(200).json({ message: "Logged out successfully" });
 };
 export const signup = async (req, res) => {
-    try {
-        const { first_name, last_name, email, password, phone, role } = req.body;
-
-        const emailExists = await checkEmailExists(email);
-        if (emailExists) {
-            return res.status(400).json({ error: "Email already in use" });
-        }
-
-        const hashedPassword = await bcryptjs.hash(password, 10);
-        await insertUser({
-            first_name,
-            last_name,
-            email,
-            password: hashedPassword,
-            phone,
-            role,
-        });
-
-        res.status(201).json({ message: "User registered successfully" });
-    } catch (err) {
-        console.error("Signup error:", err.message);
-        res.status(500).json({ error: "Registration failed" });
+  try {
+    const { first_name, last_name, email, password, phone, role } = req.body;
+    const emailExists = await checkEmailExists(email);
+    if (emailExists) {
+      return res.status(400).json({ error: "Email already in use" });
     }
+
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    await insertUser({
+      first_name,
+      last_name,
+      email,
+      password: hashedPassword,
+      phone,
+      role,
+    });
+
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (err) {
+    console.error("Signup error:", err.message);
+    res.status(500).json({ error: "Registration failed" });
+  }
 };
 export const getUserBookings = async (req, res) => {
   try {
     const userId = req.user.id;
-
     const allBookings = await UnifiedBooking.find({ user: userId })
       .populate("details.hotel")
       .populate("details.room")
@@ -303,26 +301,26 @@ export const cancelUserBooking = async (req, res) => {
   }
 };
 export const getUserReviews = async (req, res) => {
-    const userId = req.user.id;
-    try {
-        const busReviews = await BusReview.find({ userId });
-        const hotelReviews = await Review.find({ userId });
-        const flightReviews = await FlightBookingReview.find({ user: userId });
-        const trainReviews = await TrainBookingReview.find({ user: userId })
+  const userId = req.user.id;
+  try {
+    const busReviews = await BusReview.find({ userId });
+    const hotelReviews = await Review.find({ userId });
+    const flightReviews = await FlightBookingReview.find({ user: userId });
+    const trainReviews = await TrainBookingReview.find({ user: userId })
 
-        return res.status(200).json({
-            success: true,
-            reviews: {
-                bus: busReviews,
-                hotel: hotelReviews,
-                flight: flightReviews,
-                train: trainReviews
-            },
-        });
-    } catch (error) {
-        console.error("Failed to fetch user reviews", error);
-        res.status(500).json({ message: "Server error fetching reviews" });
-    }
+    return res.status(200).json({
+      success: true,
+      reviews: {
+        bus: busReviews,
+        hotel: hotelReviews,
+        flight: flightReviews,
+        train: trainReviews
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch user reviews", error);
+    res.status(500).json({ message: "Server error fetching reviews" });
+  }
 };
 export const updateUserById = async (req, res) => {
   try {

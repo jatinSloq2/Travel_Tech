@@ -47,7 +47,7 @@ const Login = () => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-            type="email"
+            type="text"
             name="email"
             placeholder="Email"
             value={formData.email}

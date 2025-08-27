@@ -36,15 +36,9 @@ export const vendorAnalyticsBooking = async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     const { hotelId, range, startDate, endDate } = req.query;
-
-    console.log("📥 Query Params:", { hotelId, range, startDate, endDate });
-    console.log("👤 User Info:", { userId, userRole });
-
     if (!userRole || !range) {
       return res.status(400).json({ message: "Role and range are required" });
     }
-
-    // 🔍 Hotel Filter
     let hotelFilter = {};
     if (userRole !== "ADMIN") {
       hotelFilter.owner = userId;
@@ -81,7 +75,6 @@ export const vendorAnalyticsBooking = async (req, res) => {
       }
     }
 
-    console.log("📆 Date Range Filter:", createdAtFilter);
 
     // 📊 Aggregation Pipeline
     const pipeline = [
@@ -132,15 +125,10 @@ export const upcomingBookings = async (req, res) => {
     const userRole = req.user.role;
     const vendorId = req.query?.vendorId;
     const { hotelId } = req.query;
-
-    console.log("🔐 Role Info:", { userId, userRole, vendorId });
-
     let ownerId = userRole === 'ADMIN' ? vendorId || null : userId;
-
     const today = new Date();
     let hotelFilter = {};
     if (ownerId) hotelFilter.owner = ownerId;
-
     const hotels = await Hotel.find(hotelFilter).select("_id name");
     const hotelIdMap = new Map(hotels.map(h => [h._id.toString(), h.name]));
     const hotelIds = Array.from(hotelIdMap.keys());
@@ -523,8 +511,6 @@ export const recentReviewsBus = async (req, res) => {
     if (!ownerId) {
       return res.status(400).json({ message: "ownerId is required" });
     }
-
-    /* ── 1. Get all buses owned by the vendor ───────────────────────── */
     const ownerBuses = await Bus.find({ owner: ownerId }).select("_id");
     const ownerBusIds = ownerBuses.map((b) => b._id.toString());
 
@@ -594,16 +580,10 @@ export const inventoryBus = async (req, res) => {
   try {
     const { busId, date } = req.query;
     const ownerId = req.user.id;
-
-    if (!ownerId) {
-      return res.status(400).json({ message: "ownerId is required" });
-    }
+    if (!ownerId) return res.status(400).json({ message: "ownerId is required" });
 
     let targetDate = date ? new Date(date) : new Date();
-    if (isNaN(targetDate)) {
-      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
-    }
-
+    if (isNaN(targetDate)) return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
     targetDate.setHours(0, 0, 0, 0);
     const targetDateStart = new Date(targetDate);
     const targetDateEnd = new Date(targetDate);
@@ -613,24 +593,17 @@ export const inventoryBus = async (req, res) => {
     const ownerBuses = await Bus.find({ owner: ownerId }).select("_id totalSeats busNumber name");
     const ownerBusIds = ownerBuses.map(b => b._id.toString());
     if (!ownerBusIds.length) return res.json([]);
-
     // Validate bus filter
     let busFilterIds = [];
     if (busId && busId !== "all") {
-      if (!mongoose.Types.ObjectId.isValid(busId)) {
-        return res.status(400).json({ message: "Invalid busId" });
-      }
-      if (!ownerBusIds.includes(busId)) {
-        return res.status(403).json({ message: "Unauthorized bus access" });
-      }
+      if (!mongoose.Types.ObjectId.isValid(busId)) return res.status(400).json({ message: "Invalid busId" });
+      if (!ownerBusIds.includes(busId)) return res.status(403).json({ message: "Unauthorized bus access" });
       busFilterIds = [busId];
     } else {
       busFilterIds = ownerBusIds;
     }
-
     // Filter actual bus objects
     const filteredBuses = ownerBuses.filter(b => busFilterIds.includes(b._id.toString()));
-
     // Aggregate bookings for the day using UnifiedBooking
     const bookings = await UnifiedBooking.aggregate([
       {
@@ -829,8 +802,6 @@ export const getVendorHotelBookings = async (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit)) || 10, 50);
     const skip = (page - 1) * limit;
     const { status, startDate, endDate } = req.query;
-
-    // Step 1: Get all hotels owned by vendor
     const vendorHotels = await Hotel.find({ owner }).select("_id");
     const hotelIds = vendorHotels.map(h => h._id.toString());
     if (hotelIds.length === 0) {
@@ -842,8 +813,6 @@ export const getVendorHotelBookings = async (req, res) => {
         pages: 0,
       });
     }
-
-    // Step 2: Auto-complete old bookings
     const today = new Date();
     await UnifiedBooking.updateMany(
       {
@@ -855,7 +824,6 @@ export const getVendorHotelBookings = async (req, res) => {
       { $set: { status: "completed" } }
     );
 
-    // Step 3: Build query
     const query = {
       bookingType: "hotel",
       "details.hotel": { $in: hotelIds.map(id => new mongoose.Types.ObjectId(id)) },
@@ -894,28 +862,13 @@ export const getVendorHotelBookings = async (req, res) => {
 export const getVendorBusBookings = async (req, res) => {
   try {
     const owner = req.user.id;
-
     const page = Math.max(1, parseInt(req.query.page)) || 1;
     const limit = Math.min(Math.max(1, parseInt(req.query.limit)) || 10, 50);
     const skip = (page - 1) * limit;
-
     const { status, startDate, endDate } = req.query;
-
-    // Step 1: Fetch buses owned by vendor
     const vendorBuses = await Bus.find({ owner }).select("_id");
     const busIds = vendorBuses.map(b => b._id.toString());
-
-    if (busIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        bookings: [],
-        total: 0,
-        page,
-        pages: 0
-      });
-    }
-
-    // Step 2: Mark bookings as Completed if journeyDate + 24 hours < now
+    if (busIds.length === 0) return res.status(200).json({ success: true, bookings: [], total: 0, page, pages: 0 });
     const now = new Date();
     await UnifiedBooking.updateMany(
       {
@@ -926,15 +879,12 @@ export const getVendorBusBookings = async (req, res) => {
       },
       { $set: { status: "completed" } }
     );
-
-    // Step 3: Build query with filters
     const query = {
       bookingType: "bus",
       "details.bus": { $in: busIds.map(id => new mongoose.Types.ObjectId(id)) }
     };
 
     if (status) query.status = status;
-
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -942,22 +892,13 @@ export const getVendorBusBookings = async (req, res) => {
         query["details.journeyDate"] = { $gte: start, $lte: end };
       }
     }
-
-    // Step 4: Fetch bookings with pagination
     const total = await UnifiedBooking.countDocuments(query);
     const bookings = await UnifiedBooking.find(query)
       .populate("details.bus")
       .sort({ "details.journeyDate": -1 })
       .skip(skip)
       .limit(limit);
-
-    return res.status(200).json({
-      success: true,
-      bookings,
-      total,
-      page,
-      pages: Math.ceil(total / limit)
-    });
+    return res.status(200).json({ success: true, bookings, total, page, pages: Math.ceil(total / limit) });
   } catch (error) {
     console.error("Vendor Bus Booking Fetch Error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
@@ -1001,23 +942,17 @@ export const allListingsByVendor = async (req, res) => {
 };
 //--------------------------------------------------------
 
-
 export const deleteBus = async (req, res) => {
   try {
-
     const { id } = req.params;
-
     const bus = await Bus.findById(id);
-    if (!bus) {
-      return res.status(404).json({ message: 'Bus not found' });
-    }
+    if (!bus) return res.status(404).json({ message: 'Bus not found' });
     if (req.user.role === 'vendor' && bus.owner !== req.user.id) {
       return res.status(403).json({ message: 'You are not authorized to delete this bus' });
     }
     await Route.deleteMany({ bus: id });
     await Seat.deleteMany({ bus: id });
     await Bus.findByIdAndDelete(id);
-
     res.status(200).json({ message: 'Bus, routes, and seats deleted successfully' });
   } catch (error) {
     console.error('Error deleting bus:', error);
